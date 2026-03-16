@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="독서카드">
+  <meta name="theme-color" content="#f7f0e6">
+  <link rel="manifest" href="./manifest_reading.json">
+  <link rel="apple-touch-icon" href="./reading_icon.png">
+  <title>독서카드</title>
+  <link href="https://fonts.googleapis.com/css2?family=Nanum+Pen+Script&display=swap" rel="stylesheet">
+  <style>
+    /* 폰트 변수 */
+    .header-title { font-family: Georgia, serif !important; font-weight: 400; }
+    .title-edit-input { font-family: Georgia, serif !important; font-weight: 400; }
+    /* 노트 카드 (카드 작성 전용) */
+    .note-card {
+      background: #fdf9f0;
+      border-radius: 4px 14px 14px 4px;
+      box-shadow: -5px 0 0 #c8a882, -10px 0 0 #e0c9a8, 3px 3px 16px rgba(0,0,0,.1);
+      position: relative; overflow: hidden;
+    }
+    .note-card::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+      background-image: repeating-linear-gradient(transparent, transparent 31px, #e8dfd0 31px, #e8dfd0 32px);
+      background-position: 0 48px; pointer-events: none; z-index: 0;
+    }
+    .note-card::after {
+      content: ''; position: absolute; top: 0; bottom: 0; left: 48px;
+      width: 1.5px; background: rgba(220,150,150,0.35); z-index: 1; pointer-events: none;
+    }
+    .note-card-inner { position: relative; z-index: 2; padding: 16px 20px 20px 64px; }
+    .note-section-title { font-family: 'Nanum Pen Script', cursive; font-size: 22px; color: #5a4a3a; margin-bottom: 14px; }
+    /* 헤더 인라인 수정 */
+    .title-edit-input { font-family: cursive; font-size: 22px; color: inherit; background: none; border: none; border-bottom: 1.5px solid transparent; outline: none; width: 100%; padding: 1px 0; transition: border-color .15s; }
+    .title-edit-input:focus { border-bottom-color: #c4a882; }
+    .author-edit-input { font-size: 12px; color: var(--muted); background: none; border: none; border-bottom: 1px solid transparent; outline: none; width: 100%; padding: 1px 0; margin-top: 2px; font-family: Georgia, serif; transition: border-color .15s; }
+    .author-edit-input:focus { border-bottom-color: #d4b896; }
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    :root { --paper: #f7f0e6; --ink: #3a2e22; --muted: #9a7a5a; --border: #d4b896; }
+    body { font-family: Georgia, 'Apple SD Gothic Neo', serif; background: var(--paper); color: var(--ink); min-height: 100vh; }
+    body::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");
+    }
+    #app { position: relative; z-index: 1; max-width: 640px; margin: 0 auto; }
+
+    .header { position: sticky; top: 0; z-index: 100; background: rgba(247,240,230,0.95); backdrop-filter: blur(10px); border-bottom: 1px solid #e0cdb0; padding: 16px 20px; display: flex; align-items: center; gap: 12px; box-shadow: 0 2px 12px rgba(100,70,30,0.06); }
+    .header-back { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--muted); padding: 6px 10px; border-radius: 10px; transition: background 0.15s; }
+    .header-back:active { background: rgba(0,0,0,0.06); }
+    .header-title { font-family: cursive; font-size: 26px; color: #5a3a1a; letter-spacing: 0.5px; }
+    .header-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .content { padding: 22px 18px 80px; }
+    .section-title { font-family: cursive; font-size: 17px; color: #7a5a3a; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; }
+
+    .book-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .book-card { background: rgba(255,255,255,0.7); border-radius: 16px; padding: 18px 15px 18px 20px; cursor: pointer; border: 1.5px solid transparent; box-shadow: 3px 5px 18px rgba(100,70,30,0.1), 0 1px 3px rgba(0,0,0,0.04); transition: transform 0.18s, box-shadow 0.18s; position: relative; overflow: hidden; }
+    .book-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; border-radius: 16px 0 0 16px; background: var(--card-spine, #d4b896); }
+    .book-card:active { transform: scale(0.96); box-shadow: 1px 2px 8px rgba(100,70,30,0.08); }
+    .book-card-emoji { font-size: 28px; margin-bottom: 9px; }
+    .book-card-title { font-weight: 600; font-size: 14px; line-height: 1.45; margin-bottom: 4px; }
+    .book-card-author { font-size: 11px; color: var(--muted); }
+    .book-card-meta { font-family: cursive; font-size: 13px; margin-top: 10px; }
+    .book-card-preview { font-size: 11px; color: #6a5a4a; font-style: italic; margin-top: 7px; line-height: 1.55; border-top: 1px solid rgba(0,0,0,0.07); padding-top: 7px; }
+    .add-card { background: rgba(255,255,255,0.35); border: 2px dashed #c8b090; border-radius: 16px; padding: 16px 14px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 7px; min-height: 120px; transition: background 0.15s; }
+    .add-card:active { background: rgba(255,255,255,0.65); }
+    .add-card-icon { font-size: 26px; color: #b09070; }
+    .add-card-label { font-family: cursive; font-size: 15px; color: #a08060; }
+
+    /* 필터 */
+    .filter-bar { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; scrollbar-width: none; }
+    .filter-bar::-webkit-scrollbar { display: none; }
+    .filter-chip { flex-shrink: 0; padding: 5px 12px; border-radius: 20px; font-family: cursive; font-size: 14px; border: 1.5px solid var(--border); background: rgba(255,255,255,0.5); color: var(--muted); cursor: pointer; white-space: nowrap; }
+    .filter-chip.active { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+    .filter-chip:active { opacity: 0.7; }
+
+    /* 카드 유형 배경 */
+    .bg-none      { background: #fdfaf4; }
+    .bg-insight   { background: #fefce6; }
+    .bg-practice  { background: #edfaed; }
+    .bg-knowledge { background: #e8f4fd; }
+    .bg-emotion   { background: #fdeef4; }
+
+    /* 카드 테두리 */
+    .bd-none      { border-color: #e0d8c4; }
+    .bd-insight   { border-color: #e8e49a; }
+    .bd-practice  { border-color: #b4deb4; }
+    .bd-knowledge { border-color: #aed0e8; }
+    .bd-emotion   { border-color: #e8b4cc; }
+
+    /* 대표 테두리 (짙게) */
+    .bd-feat-none      { border-color: #8a7a5a !important; border-width: 2.5px !important; }
+    .bd-feat-insight   { border-color: #a09010 !important; border-width: 2.5px !important; }
+    .bd-feat-practice  { border-color: #3a903a !important; border-width: 2.5px !important; }
+    .bd-feat-knowledge { border-color: #2a70a4 !important; border-width: 2.5px !important; }
+    .bd-feat-emotion   { border-color: #b43070 !important; border-width: 2.5px !important; }
+
+    .chapter-card { border-radius: 14px; padding: 16px 18px; margin-bottom: 12px; box-shadow: 2px 4px 14px rgba(100,70,30,0.08); border: 1.5px solid #e0d8c4; transition: box-shadow 0.15s; }
+    .card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; }
+    .card-top-left { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .badge { font-size: 10px; font-family: cursive; padding: 3px 8px; border-radius: 10px; background: rgba(0,0,0,0.07); letter-spacing: 0.2px; }
+    .chapter-name { font-family: cursive; font-size: 13px; color: #a08060; }
+    .card-btns { display: flex; gap: 2px; }
+    .btn-icon { background: none; border: none; font-size: 15px; padding: 4px 6px; border-radius: 6px; cursor: pointer; opacity: 0.7; }
+    .btn-icon:active { background: rgba(0,0,0,0.08); opacity: 1; }
+    .card-sentence { font-size: 14px; line-height: 1.8; font-style: italic; border-left: 3px solid rgba(0,0,0,0.12); padding-left: 12px; margin-bottom: 10px; color: #2e2218; }
+    .card-memo { font-size: 12px; color: #6a5a4a; line-height: 1.65; margin-bottom: 6px; }
+    .card-plan { font-size: 12px; color: #4a6a4a; line-height: 1.65; }
+
+    .final-section { border-radius: 18px; padding: 22px; margin-top: 24px; box-shadow: 2px 4px 16px rgba(100,70,30,0.08); }
+    .final-title { font-family: cursive; font-size: 17px; margin-bottom: 12px; letter-spacing: 0.3px; }
+
+    .empty-state { border-radius: 14px; padding: 32px; text-align: center; margin-bottom: 16px; border: 1.5px dashed rgba(0,0,0,0.1); background: rgba(255,255,255,0.35); }
+    .empty-icon { font-size: 32px; margin-bottom: 10px; }
+    .empty-text { font-family: cursive; font-size: 15px; color: var(--muted); }
+
+    input, textarea { font-family: Georgia, serif; width: 100%; padding: 12px 14px; border: 1.5px solid #ddd0b8; border-radius: 11px; background: rgba(253,248,240,0.9); color: var(--ink); font-size: 14px; -webkit-appearance: none; transition: border-color 0.15s; }
+    input:focus, textarea:focus { outline: none; border-color: #c4a882; box-shadow: 0 0 0 3px rgba(196,168,130,0.12); }
+    textarea { resize: none; line-height: 1.8; }
+    label { font-size: 12px; color: #8a6a4a; display: block; margin-bottom: 6px; letter-spacing: 0.2px; }
+    .field { margin-bottom: 16px; }
+
+    .check-row { display: flex; gap: 7px; flex-wrap: wrap; margin-top: 4px; }
+    .check-chip { display: inline-flex; align-items: center; gap: 4px; padding: 7px 14px; border-radius: 20px; border: 1.5px solid #ddd0b8; cursor: pointer; font-size: 13px; font-family: cursive; background: rgba(255,255,255,0.6); color: #7a6a5a; user-select: none; transition: all 0.15s; }
+    .check-chip.on { border-width: 2px; font-weight: 600; }
+    .check-chip:active { opacity: 0.7; }
+
+    .btn { border: none; cursor: pointer; font-family: Georgia, serif; -webkit-appearance: none; }
+    .btn:active { opacity: 0.75; }
+    .btn-primary { background: linear-gradient(135deg, #c4845a, #b87040); color: white; padding: 14px 20px; border-radius: 13px; font-family: cursive; font-size: 17px; width: 100%; box-shadow: 0 3px 10px rgba(180,100,50,0.25); letter-spacing: 0.3px; }
+    .btn-secondary { background: rgba(255,255,255,0.6); color: var(--muted); padding: 13px 20px; border-radius: 13px; border: 1.5px solid #ddd0b8; font-size: 14px; width: 100%; }
+    .btn-add { background: linear-gradient(135deg, #c4845a, #b87040); color: white; padding: 8px 16px; border-radius: 20px; font-family: cursive; font-size: 15px; border: none; cursor: pointer; box-shadow: 0 2px 8px rgba(180,100,50,0.2); }
+    .btn-add:active { opacity: 0.8; }
+    .btn-danger { background: none; border: 1.5px solid #ddb0a8; color: #b07870; border-radius: 12px; padding: 13px; font-size: 13px; width: 100%; margin-top: 22px; cursor: pointer; }
+    .btn-danger:active { background: rgba(200,100,100,0.07); }
+
+    .toast { position: fixed; bottom: 28px; left: 50%; transform: translateX(-50%); background: #5a3a1a; color: #fdf8f0; padding: 11px 22px; border-radius: 22px; font-family: cursive; font-size: 15px; opacity: 0; transition: opacity 0.3s; pointer-events: none; z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div class="header" id="header"></div>
+  <div class="content" id="content"></div>
+</div>
+<div class="toast" id="toast">저장됐어요 ✓</div>
+<script>
+const BOOK_COLORS = [
+  {bg:'#f5ede0',accent:'#c4845a',border:'#c4845a40'},
+  {bg:'#e8eed8',accent:'#6a8c4a',border:'#6a8c4a40'},
+  {bg:'#e0e8f0',accent:'#4a6a8c',border:'#4a6a8c40'},
+  {bg:'#f0e0e8',accent:'#8c4a6a',border:'#8c4a6a40'},
+  {bg:'#f0ead8',accent:'#8c7a4a',border:'#8c7a4a40'},
+];
+
+const TYPES = [
+  {key:'none',     label:'일반',   emoji:''},
+  {key:'insight',  label:'깨달음', emoji:'💡'},
+  {key:'practice', label:'실천',   emoji:'🌱'},
+  {key:'knowledge',label:'지식',   emoji:'📘'},
+  {key:'emotion',  label:'감동',   emoji:'🌸'},
+];
+
+const TYPE_CHIP_STYLE = {
+  none:      {on:'border-color:#8a7a5a;background:rgba(180,160,100,0.12);color:#6a4a2a'},
+  insight:   {on:'border-color:#a09010;background:#fefce6;color:#807010'},
+  practice:  {on:'border-color:#3a903a;background:#edfaed;color:#2a7a2a'},
+  knowledge: {on:'border-color:#2a70a4;background:#e8f4fd;color:#1a5a8a'},
+  emotion:   {on:'border-color:#b43070;background:#fdeef4;color:#943060'},
+};
+
+let S = { view:'list', books:[], activeBookId:null, editingCard:null, filter:'all' };
+
+function load() { try { const r=localStorage.getItem('rc-v3'); if(r) S.books=JSON.parse(r); } catch(e){} }
+function save() { try { localStorage.setItem('rc-v3',JSON.stringify(S.books)); toast(); } catch(e){} }
+function toast() { const t=document.getElementById('toast'); t.classList.add('show'); setTimeout(()=>t.classList.remove('show'),1500); }
+function book() { return S.books.find(b=>b.id===S.activeBookId); }
+function bc(b) { return BOOK_COLORS[b.colorIdx%BOOK_COLORS.length]; }
+function tp(k) { return TYPES.find(t=>t.key===k)||TYPES[0]; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function render() {
+  rHeader();
+  const c=document.getElementById('content');
+  if(S.view==='list')     c.innerHTML=rList();
+  else if(S.view==='newBook') c.innerHTML=rNewBook();
+  else if(S.view==='book')    c.innerHTML=rBook();
+  else if(S.view==='edit')    c.innerHTML=rEdit();
+}
+
+function rHeader() {
+  const h=document.getElementById('header');
+  const b=book();
+  if(S.view==='list'||S.view==='newBook') {
+    h.innerHTML=`<div><div class="header-title">📖 독서카드</div></div>`;
+  } else if(S.view==='book'&&b) {
+    const c=bc(b);
+    h.innerHTML=`<button class="header-back" onclick="back()">←</button>
+      <div style="flex:1;min-width:0;">
+        <input class="title-edit-input" value="${esc(b.title)}" style="color:${c.accent}" oninput="editBookMeta('title',this.value)"/>
+        <input class="author-edit-input" value="${esc(b.author||'')}" placeholder="저자명" oninput="editBookMeta('author',this.value)"/>
+      </div>`;
+  } else if(S.view==='edit') {
+    h.innerHTML=`<button class="header-back" onclick="back()">←</button><div><div class="header-title">✍️ 카드 작성</div></div>`;
+  }
+}
+
+function rList() {
+  const booksHtml=S.books.map(b=>{
+    const c=bc(b);
+    const prev=b.finalSentence?`<div class="book-card-preview">${esc(b.finalSentence.slice(0,40))}${b.finalSentence.length>40?'…':''}</div>`:'';
+    return `<div class="book-card" style="background:${c.bg};border-color:${c.border};--card-spine:${c.accent}" onclick="openBook(${b.id})">
+      <div class="book-card-title" style="font-size:16px;font-weight:700;text-align:center;margin-bottom:6px;color:${c.accent}">${esc(b.title)}</div>
+      ${b.author?`<div class="book-card-author" style="text-align:center;margin-bottom:10px">${esc(b.author)}</div>`:''}
+      <div class="book-card-meta" style="color:${c.accent}">카드 ${b.cards.length}장 · ${b.createdAt}</div>
+      ${prev}</div>`;
+  }).join('');
+  return `<div class="section-title">나의 책장 (${S.books.length}권)</div>
+    <div class="book-grid">${booksHtml}
+      <div class="add-card" onclick="goNew()"><div class="add-card-icon">＋</div><div class="add-card-label">새 책 추가</div></div>
+    </div>`;
+}
+
+function rNewBook() {
+  return `<div style="background:rgba(255,255,255,0.6);border:1px solid #d4b896;border-radius:16px;padding:24px 20px">
+    <div style="font-family:cursive;font-size:22px;color:#6a4a2a;margin-bottom:20px">📖 새 책 등록</div>
+    <div class="field"><label>책 제목 *</label><input id="nTitle" type="text" placeholder="책 제목을 입력하세요"/></div>
+    <div class="field" style="margin-bottom:24px"><label>저자 (선택)</label><input id="nAuthor" type="text" placeholder="저자명"/></div>
+    <button class="btn btn-primary" onclick="addBook()">독서카드 시작하기</button>
+    <button class="btn btn-secondary" style="margin-top:10px" onclick="back()">취소</button>
+  </div>`;
+}
+
+function rBook() {
+  const b=book(); if(!b) return '';
+  const c=bc(b);
+  const chapters=[...new Set(b.cards.map(c=>c.chapter).filter(Boolean))];
+
+  const chips=[
+    {key:'all',label:'전체'},
+    {key:'featured',label:'⭐ 대표'},
+    ...TYPES.filter(t=>t.key!=='none').map(t=>({key:t.key,label:t.emoji+' '+t.label})),
+    ...chapters.map(ch=>({key:'ch:'+ch,label:'📑 '+ch})),
+  ].map(f=>`<div class="filter-chip ${S.filter===f.key?'active':''}" onclick="setFilter('${esc(f.key)}')">${esc(f.label)}</div>`).join('');
+
+  let filtered=b.cards;
+  if(S.filter==='featured') filtered=filtered.filter(c=>c.featured);
+  else if(S.filter.startsWith('ch:')) filtered=filtered.filter(c=>c.chapter===S.filter.slice(3));
+  else if(S.filter!=='all') filtered=filtered.filter(c=>c.type===S.filter);
+
+  const cardsHtml=filtered.length===0
+    ?`<div class="empty-state"><div class="empty-icon">${b.cards.length===0?'✍️':'🔍'}</div><div class="empty-text">${b.cards.length===0?'첫 번째 카드를 만들어보세요':'해당하는 카드가 없어요'}</div></div>`
+    :filtered.map((card,i)=>{
+      const t=tp(card.type||'none');
+      const feat=!!card.featured;
+      const bdClass=feat?`bd-feat-${t.key}`:`bd-${t.key}`;
+      const badges=[
+        feat?`<span class="badge">⭐ 대표</span>`:'',
+        card.type&&card.type!=='none'?`<span class="badge">${t.emoji} ${t.label}</span>`:'',
+      ].join('');
+      return `<div class="chapter-card bg-${t.key} ${bdClass}">
+        <div class="card-top">
+          <div class="card-top-left">${badges}<span class="chapter-name">${esc(card.chapter||`카드 ${i+1}`)}</span></div>
+          <div class="card-btns">
+            <button class="btn-icon" onclick="editCard(${card.id})">✏️</button>
+            <button class="btn-icon" onclick="delCard(${card.id})">🗑</button>
+          </div>
+        </div>
+        ${card.sentence?`<div class="card-sentence">"${esc(card.sentence)}"</div>`:''}
+        ${card.memo?`<div class="card-memo">💭 ${esc(card.memo)}</div>`:''}
+        ${card.plan?`<div class="card-plan">🌱 ${esc(card.plan)}</div>`:''}
+      </div>`;
+    }).join('');
+
+  return `
+    <div class="section-title">챕터별 카드 <button class="btn-add" onclick="newCard()">＋ 카드 추가</button></div>
+    <div class="filter-bar">${chips}</div>
+    ${cardsHtml}
+    <div class="final-section" style="background:linear-gradient(135deg,${c.bg},#fdf8f0);border:2px solid ${c.accent}60">
+      <div class="final-title" style="color:${c.accent}">✨ 이 책의 단 한 문장</div>
+      <div class="field"><textarea id="fSen" rows="3" placeholder="이 책 전체를 대표하는 단 하나의 문장..." style="font-style:italic" oninput="autoSave()">${esc(b.finalSentence||'')}</textarea></div>
+      <div class="final-title" style="color:${c.accent};margin-top:4px">🌿 실천 계획</div>
+      <div class="field" style="margin-bottom:0"><textarea id="fPlan" rows="3" placeholder="일상에서 어떻게 실천할 건가요?" oninput="autoSave()">${esc(b.finalPlan||'')}</textarea></div>
+    </div>
+    <button class="btn-danger" onclick="delBook()">이 책 삭제</button>`;
+}
+
+function rEdit() {
+  const b=book(); const card=S.editingCard; if(!b||!card) return '';
+  const c=bc(b);
+
+  const featStyle=card.featured?TYPE_CHIP_STYLE.none.on:'';
+  const featHtml=`<div class="field"><label>대표 카드</label>
+    <div class="check-row"><div class="check-chip ${card.featured?'on':''}" style="${featStyle}" onclick="togFeat()">⭐ 대표</div></div></div>`;
+
+  const typeHtml=`<div class="field"><label>카드 유형 (하나만 선택)</label>
+    <div class="check-row">${TYPES.map(t=>{
+      const sel=(card.type||'none')===t.key;
+      return `<div class="check-chip ${sel?'on':''}" style="${sel?TYPE_CHIP_STYLE[t.key].on:''}" onclick="setType('${t.key}')">${t.emoji?t.emoji+' ':''}${t.label}</div>`;
+    }).join('')}</div></div>`;
+
+  const fields=[
+    {k:'chapter', l:'챕터 / 장', p:'예) 1장, 3챕터, 에필로그...', r:1, i:false},
+    {k:'sentence',l:'문장 ✨',p:'이 챕터에서 가장 마음에 드는 한 문장...',r:3,i:true},
+    {k:'memo',    l:'내 생각 💭',  p:'이 문장을 읽고 든 생각, 느낌...',r:3,i:false},
+    {k:'plan',    l:'실천 계획 🌱',p:'이걸 일상에서 어떻게 써볼까?',r:2,i:false},
+  ];
+
+  return `<div class="note-card"><div class="note-card-inner">
+    ${featHtml}${typeHtml}
+    ${fields.map(f=>`<div class="field"><label>${f.l}</label>
+      <textarea id="f_${f.k}" rows="${f.r}" placeholder="${f.p}" style="${f.i?'font-style:italic':''}">${esc(card[f.k]||'')}</textarea>
+    </div>`).join('')}
+    <div style="display:flex;gap:10px;margin-top:6px">
+      <button class="btn btn-secondary" style="flex:1" onclick="back()">취소</button>
+      <button class="btn btn-primary" style="flex:2;background:${c.accent}" onclick="saveCard()">저장하기</button>
+    </div>
+  </div></div>`;
+}
+
+// 액션
+function back() {
+  if(S.view==='edit'){S.view='book';S.editingCard=null;}
+  else if(S.view==='book'){S.view='list';S.activeBookId=null;S.filter='all';}
+  else S.view='list';
+  render();
+}
+function goNew(){S.view='newBook';render();}
+function openBook(id){S.activeBookId=id;S.filter='all';S.view='book';render();}
+function setFilter(k){S.filter=k;render();}
+
+function addBook(){
+  const title=document.getElementById('nTitle')?.value?.trim();
+  if(!title){alert('책 제목을 입력해주세요');return;}
+  const b={id:Date.now(),title,author:document.getElementById('nAuthor')?.value?.trim()||'',
+    colorIdx:S.books.length%BOOK_COLORS.length,cards:[],finalSentence:'',finalPlan:'',
+    createdAt:new Date().toLocaleDateString('ko-KR')};
+  S.books.push(b); save();
+  S.activeBookId=b.id; S.view='book'; render();
+}
+
+function newCard(){
+  S.editingCard={id:Date.now(),chapter:'',sentence:'',memo:'',plan:'',featured:false,type:'none'};
+  S.view='edit'; render();
+}
+function editCard(id){
+  const b=book(); const card=b?.cards.find(c=>c.id===id); if(!card) return;
+  S.editingCard={...card}; S.view='edit'; render();
+}
+function togFeat(){S.editingCard.featured=!S.editingCard.featured;render();}
+function setType(k){S.editingCard.type=k;render();}
+
+function saveCard(){
+  const b=book(); if(!b) return;
+  const card=S.editingCard;
+  ['chapter','sentence','memo','plan'].forEach(k=>{
+    const el=document.getElementById('f_'+k); if(el) card[k]=el.value;
+  });
+  const idx=b.cards.findIndex(c=>c.id===card.id);
+  if(idx>=0) b.cards[idx]=card; else b.cards.push(card);
+  save(); S.editingCard=null; S.view='book'; render();
+}
+
+function delCard(id){
+  const b=book(); if(!b) return;
+  if(!confirm('이 카드를 삭제할까요?')) return;
+  b.cards=b.cards.filter(c=>c.id!==id); save(); render();
+}
+function delBook(){
+  const b=book(); if(!b) return;
+  if(!confirm(`"${b.title}"을 삭제할까요?`)) return;
+  S.books=S.books.filter(x=>x.id!==b.id); save();
+  S.view='list'; S.activeBookId=null; render();
+}
+
+let ft=null;
+function autoSave(){
+  clearTimeout(ft); ft=setTimeout(()=>{
+    const b=book(); if(!b) return;
+    const s=document.getElementById('fSen'); const p=document.getElementById('fPlan');
+    if(s) b.finalSentence=s.value; if(p) b.finalPlan=p.value;
+    save();
+  },800);
+}
+
+function editBookMeta(field, val) {
+  const b=book(); if(!b) return;
+  b[field]=val; save();
+}
+
+load(); render();
+
+if('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('./sw_reading.js');
+}
+</script>
+</body>
+</html>
