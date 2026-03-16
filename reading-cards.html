@@ -156,6 +156,15 @@
   <div class="content" id="content"></div>
 </div>
 <div class="toast" id="toast">저장됐어요 ✓</div>
+<div id="footer-btns" style="display:none;position:fixed;bottom:0;left:0;right:0;justify-content:flex-end;gap:20px;padding:10px 24px;background:rgba(247,240,230,0.95);backdrop-filter:blur(10px);border-top:1px solid #e0cdb0;z-index:100;">
+  <button onclick="exportData()" style="background:none;border:none;cursor:pointer;font-size:11px;color:#9a7a5a;font-family:Georgia,serif;display:flex;flex-direction:column;align-items:center;gap:2px;">
+    <span style="font-size:16px">💾</span>저장
+  </button>
+  <label style="cursor:pointer;font-size:11px;color:#9a7a5a;font-family:Georgia,serif;display:flex;flex-direction:column;align-items:center;gap:2px;">
+    <span style="font-size:16px">📂</span>불러오기
+    <input type="file" accept=".json" style="display:none" onchange="importData(this)"/>
+  </label>
+</div>
 <script>
 const BOOK_COLORS = [
   {bg:'#f5ede0',accent:'#c4845a',border:'#c4845a40'},
@@ -197,11 +206,12 @@ function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').re
 function render() {
   rHeader();
   const c=document.getElementById('content');
-  if(S.view==='list')     c.innerHTML=rList();
-  else if(S.view==='newBook') c.innerHTML=rNewBook();
-  else if(S.view==='book')    c.innerHTML=rBook();
-  else if(S.view==='edit')    c.innerHTML=rEdit();
-  else if(S.view==='search')  c.innerHTML=rSearch();
+  const footer=document.getElementById('footer-btns');
+  if(S.view==='list')     { c.innerHTML=rList(); footer.style.display='flex'; }
+  else if(S.view==='newBook') { c.innerHTML=rNewBook(); footer.style.display='none'; }
+  else if(S.view==='book')    { c.innerHTML=rBook(); footer.style.display='none'; }
+  else if(S.view==='edit')    { c.innerHTML=rEdit(); footer.style.display='none'; }
+  else if(S.view==='search')  { c.innerHTML=rSearch(); footer.style.display='none'; }
 }
 
 function rHeader() {
@@ -524,6 +534,30 @@ function editFromSearch(bookId,cardId){
   const card=b?.cards.find(c=>c.id===cardId);
   if(!card) return;
   S.editingCard={...card}; S.view='edit'; render();
+}
+
+function exportData(){
+  const json=JSON.stringify(S.books,null,2);
+  const blob=new Blob([json],{type:'application/json'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download='독서카드_'+new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/ /g,'')+'.json';
+  a.click();
+}
+
+function importData(input){
+  const file=input.files[0]; if(!file) return;
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);
+      if(!Array.isArray(data)) throw new Error();
+      S.books=data;
+      S.books.forEach(b=>b.cards.forEach(c=>{if(!c.tags)c.tags=[];}));
+      save(); render();
+    } catch(e){ alert('올바른 파일이 아니에요'); }
+  };
+  reader.readAsText(file);
 }
 
 load(); render();
